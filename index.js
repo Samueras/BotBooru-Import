@@ -17,14 +17,11 @@
     async function remote(url) {
         const target = new URL(url);
         if (!/^https?:$/.test(target.protocol)) throw new Error('Invalid remote URL');
-        const { getToken } = await import('./botbooru-auth.js');
-        const token = target.protocol === 'https:' && target.hostname.toLowerCase() === 'botbooru.com' ? getToken() : '';
-        const headers = token ? { Authorization: 'Bearer ' + token } : {};
         try {
-            const direct = await fetch(target.href, { headers, credentials: 'omit', signal: AbortSignal.timeout(30000) });
+            const direct = await fetch(target.href, { credentials: 'omit', signal: AbortSignal.timeout(30000) });
             if (direct.ok || [401, 403].includes(direct.status)) return direct;
         } catch { /* Try the optional ST CORS proxy. */ }
-        const response = await fetch(`/proxy/${target.href}`, { headers, signal: AbortSignal.timeout(30000) });
+        const response = await fetch(`/proxy/${target.href}`, { signal: AbortSignal.timeout(30000) });
         if (response.status === 404 && (await response.clone().text()).includes('CORS proxy is disabled')) {
             throw new Error('Remote access needs enableCorsProxy in the SillyTavern server config.');
         }
@@ -32,6 +29,13 @@
     }
 
     async function json(url) {
+        const target = new URL(url);
+        const postMatch = target.protocol === 'https:' && target.hostname === 'botbooru.com' && target.pathname.match(/^\/post\/(\d+)$/);
+        if (postMatch) {
+            const { getToken, fetchAuthenticatedPost } = await import('./botbooru-auth.js');
+            const token = getToken();
+            if (token) return fetchAuthenticatedPost(postMatch[1], token, SillyTavern.getContext().getRequestHeaders());
+        }
         const response = await remote(url);
         const value = await response.json().catch(() => ({}));
         if (value.detail === 'login_required') throw new Error('BotBooru requires a login for this post. Log in from the import dialog and check your account settings.');

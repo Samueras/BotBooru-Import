@@ -11,6 +11,28 @@ export function clearToken() {
     catch { /* Storage can be unavailable in private browsing. */ }
 }
 
+// The status endpoint forwards its proxy password as a Bearer token. A URL
+// fragment keeps its appended /models suffix out of the request to BotBooru.
+// This leaves the browser's Authorization header free for ST's Basic auth.
+export async function fetchAuthenticatedPost(id, token, headers) {
+    if (!/^\d+$/.test(String(id))) throw new Error('Invalid BotBooru post ID.');
+    const response = await fetch('/api/backends/chat-completions/status', {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            chat_completion_source: 'openai',
+            reverse_proxy: `https://botbooru.com/post/${id}#`,
+            proxy_password: token,
+        }),
+        signal: AbortSignal.timeout(30000),
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data || data.error || String(data.id) !== String(id)) {
+        throw new Error('Could not load BotBooru post details. Check your BotBooru login and account visibility settings.');
+    }
+    return data;
+}
+
 /**
  * ST's CORS proxy serializes parsed POST bodies as JSON regardless of content
  * type. Nest the form inside a form field name so that, after that serialization,
