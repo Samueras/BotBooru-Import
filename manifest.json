@@ -2,7 +2,7 @@
   "display_name": "BotBooru Import",
   "description": "Import BotBooru cards and optional BotBooru, Chub and RisuRealm images through SillyTavern’s URL importer.",
   "author": "Samueras",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "loading_order": 105,
   "js": "index.js",
   "css": "style.css",

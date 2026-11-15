@@ -17,11 +17,14 @@
     async function remote(url) {
         const target = new URL(url);
         if (!/^https?:$/.test(target.protocol)) throw new Error('Invalid remote URL');
+        const { getToken } = await import('./botbooru-auth.js');
+        const token = target.protocol === 'https:' && target.hostname.toLowerCase() === 'botbooru.com' ? getToken() : '';
+        const headers = token ? { Authorization: 'Bearer ' + token } : {};
         try {
-            const direct = await fetch(target.href, { credentials: 'omit', signal: AbortSignal.timeout(30000) });
+            const direct = await fetch(target.href, { headers, credentials: 'omit', signal: AbortSignal.timeout(30000) });
             if (direct.ok || [401, 403].includes(direct.status)) return direct;
         } catch { /* Try the optional ST CORS proxy. */ }
-        const response = await fetch(`/proxy/${target.href}`, { signal: AbortSignal.timeout(30000) });
+        const response = await fetch(`/proxy/${target.href}`, { headers, signal: AbortSignal.timeout(30000) });
         if (response.status === 404 && (await response.clone().text()).includes('CORS proxy is disabled')) {
             throw new Error('Remote access needs enableCorsProxy in the SillyTavern server config.');
         }
@@ -31,9 +34,41 @@
     async function json(url) {
         const response = await remote(url);
         const value = await response.json().catch(() => ({}));
-        if (value.detail === 'login_required') throw new Error('BotBooru does not expose this post’s details to anonymous visitors.');
+        if (value.detail === 'login_required') throw new Error('BotBooru requires a login for this post. Log in from the import dialog and check your account settings.');
         if (!response.ok) throw new Error(`${new URL(url).hostname}: ${value.detail || `HTTP ${response.status}`}`);
         return value;
+    }
+
+    async function showBotbooruLogin() {
+        const { Popup, POPUP_TYPE, POPUP_RESULT } = await import('/scripts/popup.js');
+        const { login } = await import('./botbooru-auth.js');
+        const content = document.createElement('div');
+        content.innerHTML = `<h3>Log in to BotBooru</h3>
+            <label class="text_label">Username <input class="text_pole bbi-username" type="text" autocomplete="off"></label>
+            <label class="text_label">Password <input class="text_pole bbi-password" type="password" autocomplete="new-password"></label>
+            <div class="bbi-security-note">
+                <p>Your password is sent through this SillyTavern server to BotBooru to sign in. This extension does not save it.</p>
+                <p>BotBooru returns a token that can access your account. The extension saves it in this browser for this SillyTavern site so you stay logged in. Other extensions or scripts running on this SillyTavern site may be able to read it.</p>
+                <p>Only sign in on a SillyTavern server you trust. When connecting to a remote server over HTTP instead of HTTPS, your password and token can be exposed on the network.</p>
+                <p>Logging out removes the saved token from this browser; it may still be valid at BotBooru.</p>
+            </div>`;
+        const user = content.querySelector('.bbi-username');
+        const pass = content.querySelector('.bbi-password');
+        const popup = new Popup(content, POPUP_TYPE.CONFIRM, '', { okButton: 'Log in', cancelButton: 'Cancel' });
+        try {
+            const result = await popup.show();
+            if (result !== POPUP_RESULT.AFFIRMATIVE) return false;
+            const username = user.value.trim();
+            const password = pass.value;
+            user.value = ''; pass.value = '';
+            if (!username || !password) throw new Error('Enter your BotBooru username and password.');
+            await login(username, password, SillyTavern.getContext().getRequestHeaders());
+            toastr.success('Logged in to BotBooru.');
+            return true;
+        } catch (error) {
+            toastr.error(error.message || 'BotBooru login failed.');
+            return false;
+        } finally { user.value = ''; pass.value = ''; }
     }
 
     async function dialog() {
@@ -47,6 +82,20 @@
             item.innerHTML = 'BotBooru Character (Direct Link)<br>Example: <tt>https://botbooru.com/character/98942</tt><br>Example: <tt>https://botbooru.com/download/png/98942</tt>';
             list.appendChild(item);
         }
+        const { getToken, clearToken } = await import('./botbooru-auth.js');
+        const account = document.createElement('div');
+        account.className = 'bbi-account';
+        const note = document.createElement('small');
+        note.textContent = 'Log in to BotBooru for NSFW source details and gallery images.';
+        const button = document.createElement('button');
+        button.type = 'button'; button.className = 'menu_button';
+        const refresh = () => { button.textContent = getToken() ? 'Log out of BotBooru' : 'Log in to BotBooru'; };
+        refresh();
+        button.addEventListener('click', async () => {
+            if (getToken()) { clearToken(); refresh(); toastr.info('Logged out of BotBooru on this browser.'); }
+            else if (await showBotbooruLogin()) refresh();
+        });
+        account.append(note, button); content.appendChild(account);
         const popup = new Popup(content, POPUP_TYPE.INPUT, '', {
             allowVerticalScrolling: true, wider: true,
             okButton: document.querySelector('#popup_template')?.getAttribute('popup-button-import'), rows: 4,

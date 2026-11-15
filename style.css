@@ -4,3 +4,7 @@
 .bbi-dialog label { display: block; margin: .8em 0; }
 .bbi-dialog .bbi-actions { display: flex; gap: .5em; justify-content: flex-end; }
 .bbi-dialog small { display: block; opacity: .85; }
+.bbi-account { display: flex; align-items: center; justify-content: center; gap: .7em; flex-wrap: wrap; margin: .7em 0; }
+.bbi-account .menu_button { font-size: .9em; }
+.bbi-security-note { text-align: left; font-size: .9em; }
+.bbi-security-note p { margin: .5em 0; }
