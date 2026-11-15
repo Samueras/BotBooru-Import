@@ -44,7 +44,7 @@
         const list = content.querySelector('.sources_list ul');
         if (list) {
             const item = document.createElement('li');
-            item.innerHTML = 'BotBooru Character (Direct Link)<br>Example: <tt>https://botbooru.com/character/98942</tt>';
+            item.innerHTML = 'BotBooru Character (Direct Link)<br>Example: <tt>https://botbooru.com/character/98942</tt><br>Example: <tt>https://botbooru.com/download/png/98942</tt>';
             list.appendChild(item);
         }
         const popup = new Popup(content, POPUP_TYPE.INPUT, '', {
