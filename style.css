@@ -1,0 +1,6 @@
+.bbi-dialog { max-width: min(650px, 95vw); color: var(--SmartThemeBodyColor); background: var(--SmartThemeBlurTintColor); border: 1px solid var(--SmartThemeBorderColor); border-radius: 8px; padding: 1.2em; }
+.bbi-dialog::backdrop { background: rgba(0,0,0,.65); }
+.bbi-dialog textarea, .bbi-dialog input[type=password] { width: 100%; box-sizing: border-box; }
+.bbi-dialog label { display: block; margin: .8em 0; }
+.bbi-dialog .bbi-actions { display: flex; gap: .5em; justify-content: flex-end; }
+.bbi-dialog small { display: block; opacity: .85; }
